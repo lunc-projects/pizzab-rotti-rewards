@@ -116,6 +116,17 @@ export function adminPauseReward(signingClient, sender, collection, rewardToken)
 export function adminUnpauseReward(signingClient, sender, collection, rewardToken) {
   return exec(signingClient, sender, CONTRACT_ADDRESS, { unpause_reward: { collection, reward_token: rewardToken } });
 }
+export function adminTransferAdmin(signingClient, sender, newAdmin) {
+  // Contract-level admin (controls everything in this app) — TransferAdmin execute.
+  return exec(signingClient, sender, CONTRACT_ADDRESS, { transfer_admin: { new_admin: newAdmin } });
+}
+export function chainUpdateAdmin(signingClient, sender, newAdmin) {
+  // Chain-level contract admin (migration / code-upgrade rights) — MsgUpdateAdmin.
+  // Kept in sync with the contract admin so a transfer hands over FULL control.
+  requireDeployed();
+  if (!signingClient) throw new Error('Connect a wallet first.');
+  return signingClient.updateAdmin(sender, CONTRACT_ADDRESS, newAdmin, AUTO_FEE);
+}
 export function fundPool(signingClient, sender, tokenAddress, amountBaseUnits, collection) {
   // CW20 Send hook into the staking contract: msg = { fund: { collection } }
   return exec(signingClient, sender, tokenAddress, {

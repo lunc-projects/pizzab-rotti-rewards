@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PIZZAB, ROTTI, isContractDeployed } from '../config.js';
 import { useWalletCtx } from './hooks.js';
-import { queryConfig, adminRegisterCollection, adminAddReward, adminSetRewardRate, adminSetStakeFee, adminSetLockPeriod, adminPauseReward, adminUnpauseReward, fundPool } from '../lib/stakingClient.js';
+import { queryConfig, adminRegisterCollection, adminAddReward, adminSetRewardRate, adminSetStakeFee, adminSetLockPeriod, adminPauseReward, adminUnpauseReward, fundPool, adminTransferAdmin, chainUpdateAdmin } from '../lib/stakingClient.js';
 import { cw721ContractInfo, lcdContractInfo } from '../lib/lcd.js';
 import { isValidTerraAddress, toBaseUnits } from '../lib/format.js';
 
@@ -20,6 +20,13 @@ export default function AdminSection({ collections }) {
   const [fundAmt, setFundAmt] = useState('');
   const [feeLunc, setFeeLunc] = useState('');
   const [lockDays, setLockDays] = useState('');
+  // transfer admin state
+  const [newAdmin, setNewAdmin] = useState('');
+  const [confirmArm, setConfirmArm] = useState(false);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [transferMsg, setTransferMsg] = useState(null);
+  const [chainPending, setChainPending] = useState(null); // target addr if app admin moved but chain upgrade admin did not
+  const [lastTransfer, setLastTransfer] = useState(null); // { target, appTx, chainTx } after a full transfer
 
   useEffect(() => { (async () => { try { setConfig(await queryConfig()); } catch { setConfig(null); } })(); }, []);
   const adminAddr = config?.admin || config?.owner || null;
@@ -32,6 +39,47 @@ export default function AdminSection({ collections }) {
     setMsg(null);
     try { const client = await getSigningClient(); const res = await fn(client); setMsg(`${label} — tx ${res.transactionHash}`); }
     catch (e) { setMsg(e.message); }
+  }
+
+  async function runTransfer() {
+    const target = newAdmin.trim();
+    if (!isValidTerraAddress(target) || target === adminAddr || transferBusy) return;
+    if (!confirmArm) { setConfirmArm(true); return; }
+    setTransferBusy(true); setTransferMsg(null);
+    try {
+      const client = await getSigningClient();
+      // Step 1: the contract's own admin (controls everything in this app)
+      const r1 = await adminTransferAdmin(client, address, target);
+      setTransferMsg(`Step 1 done — app admin is now ${target} (tx ${r1.transactionHash}). Now moving the contract's upgrade admin…`);
+      // Step 2: the chain-level admin (migration / upgrade rights), signed by the current chain admin
+      try {
+        const r2 = await chainUpdateAdmin(client, address, target);
+        setLastTransfer({ target, appTx: r1.transactionHash, chainTx: r2.transactionHash });
+        setChainPending(null);
+        setTransferMsg(`✅ Admin fully transferred to ${target}. App admin tx ${r1.transactionHash} · Upgrade admin tx ${r2.transactionHash}.`);
+        try { setConfig(await queryConfig()); } catch { /* panel locks on next load either way */ }
+      } catch (e2) {
+        setChainPending(target);
+        setTransferMsg(`⚠️ App admin moved to ${target} (tx ${r1.transactionHash}), but the contract's upgrade admin did NOT move: ${e2.message} — this wallet still holds upgrade rights. Use the retry button below to finish the handover.`);
+      }
+    } catch (e) {
+      setTransferMsg(`Transfer failed — nothing changed: ${e.message}`);
+    }
+    setTransferBusy(false); setConfirmArm(false);
+  }
+
+  async function retryChainSync() {
+    if (!chainPending || transferBusy) return;
+    setTransferBusy(true);
+    try {
+      const client = await getSigningClient();
+      const r2 = await chainUpdateAdmin(client, address, chainPending);
+      setLastTransfer({ target: chainPending, appTx: lastTransfer?.appTx || '(earlier)', chainTx: r2.transactionHash });
+      setTransferMsg(`✅ Upgrade admin moved to ${chainPending} (tx ${r2.transactionHash}). Admin handover is now complete.`);
+      setChainPending(null);
+      try { setConfig(await queryConfig()); } catch { /* ignore */ }
+    } catch (e) { setTransferMsg(`Retry failed: ${e.message}`); }
+    setTransferBusy(false);
   }
 
   async function verifyCollection() {
@@ -65,7 +113,17 @@ export default function AdminSection({ collections }) {
   }
 
   if (!address) return (<section><h2>Admin</h2><div className="empty"><p>Connect the owner wallet to use the admin panel.</p></div></section>);
-  if (adminAddr && !isAdmin) return (<section><h2>Admin</h2><div className="empty"><p>🔒 This wallet is not the admin for this app. Admin: {adminAddr}</p></div></section>);
+  if (adminAddr && !isAdmin) return (
+    <section><h2>Admin</h2>
+      <div className="empty"><p>🔒 This wallet is not the admin for this app. Admin: {adminAddr}</p>
+      {lastTransfer && <p className="notice">✅ You transferred admin to {lastTransfer.target}. App admin tx {lastTransfer.appTx} · Upgrade admin tx {lastTransfer.chainTx}. Connect the new admin wallet to manage the app.</p>}
+      {chainPending && <>
+        <p className="notice">⚠️ One step is unfinished: the contract's upgrade admin has not moved to {chainPending} yet, and this wallet still holds it. Finish the handover:</p>
+        <button className="btn primary" disabled={transferBusy} onClick={retryChainSync}>{transferBusy ? 'Working…' : 'Retry upgrade-admin transfer'}</button>
+        {transferMsg && <p className="notice">{transferMsg}</p>}
+      </>}
+      </div>
+    </section>);
 
   return (
     <section>
@@ -108,6 +166,19 @@ export default function AdminSection({ collections }) {
         <button className="btn" disabled={feeLunc === ''} onClick={() => run('Stake fee set', (c) => adminSetStakeFee(c, address, toBaseUnits(feeLunc, 6)))}>Set Stake Fee</button>
         <label>Lock period (days) <input inputMode="numeric" value={lockDays} onChange={(e) => setLockDays(e.target.value)} placeholder="0 = unstake anytime" /></label>
         <button className="btn" disabled={lockDays === ''} onClick={() => run('Lock period set', (c) => adminSetLockPeriod(c, address, Number(lockDays) * 86400))}>Set Lock Period</button>
+      </div>
+
+      <div className="form card wide">
+        <h3>Transfer Admin</h3>
+        <p>Current admin: <strong>{adminAddr}</strong></p>
+        <p>Hand the app over to a different wallet, any time. This moves <strong>both</strong> the app admin (collections, rewards, rates, fees — everything in this panel) <strong>and</strong> the contract's on-chain upgrade admin, in two signed steps. The new wallet becomes admin immediately and this wallet loses admin — it can't be undone by this wallet afterwards, so double-check the address.</p>
+        <label>New admin wallet <input value={newAdmin} onChange={(e) => { setNewAdmin(e.target.value); setConfirmArm(false); }} placeholder="terra1…" /></label>
+        {transferMsg && <p className="notice">{transferMsg}</p>}
+        {chainPending && <button className="btn primary" disabled={transferBusy} onClick={retryChainSync}>{transferBusy ? 'Working…' : `Retry upgrade-admin transfer to ${chainPending.slice(0, 12)}…`}</button>}
+        <button className="btn" disabled={!isValidTerraAddress(newAdmin.trim()) || newAdmin.trim() === adminAddr || transferBusy}
+          onClick={runTransfer}>
+          {transferBusy ? 'Working…' : confirmArm ? `⚠️ Click again to confirm — transfer admin to ${newAdmin.trim().slice(0, 12)}…` : 'Transfer Admin'}
+        </button>
       </div>
     </section>
   );
