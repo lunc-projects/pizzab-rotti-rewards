@@ -30,7 +30,7 @@ export const REWARD_TOKENS = [PIZZAB, ROTTI];
 // Staking/rewards contract — empty string until it is deployed.
 // Every contract read/write in the app checks this and degrades
 // gracefully (browse-only mode) while it is empty.
-export const CONTRACT_ADDRESS = '';
+export const CONTRACT_ADDRESS = 'terra144pjf6mme8xcpasszzls5qpr6uy7me0hh0uq25wksfjumxgmcuwqe4rwcv';
 
 // NFT collections registered in the app. Empty until the first
 // collection is created (Miata/Garuda) and registered by admin.
