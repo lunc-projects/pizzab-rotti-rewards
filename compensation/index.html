@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROTTI Staking — Compensation Ledger | Garuda Incident, 21 Oct 2026</title>
+<meta name="description" content="On-chain record of ROTTI staked in the Garuda cross-staking contract drained on 21 Oct 2026: who is owed what, wallet by wallet.">
+<style>
+:root{--bg:#100e0c;--card:#1c1712;--card2:#261e16;--line:#3a2d1e;--txt:#f6efe4;--dim:#bfae94;--gold:#ffa726;--gold2:#e2703a;--ok:#3ddc84}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+a{color:var(--gold)} .wrap{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+header{padding:28px 0 8px} .kicker{color:var(--gold);font-weight:700;letter-spacing:.12em;font-size:12px;text-transform:uppercase}
+h1{font-size:32px;line-height:1.15;margin:6px 0 8px} h1 .grad{background:linear-gradient(90deg,var(--gold),var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--dim);max-width:72ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:22px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.stat .n{font-size:23px;font-weight:800} .stat .l{color:var(--dim);font-size:13px;margin-top:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0}
+.card h2{margin:0 0 10px;font-size:20px}
+input[type=text]{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--txt);font-size:15px;font-family:ui-monospace,Menlo,monospace}
+input[type=text]:focus{outline:2px solid var(--gold);border-color:transparent}
+.result{margin-top:14px;padding:14px;border-radius:10px;background:var(--card2);display:none}
+.result .amt{font-size:27px;font-weight:800;color:var(--gold)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.addr{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all}
+.copy{cursor:pointer;background:none;border:1px solid var(--line);color:var(--dim);border-radius:6px;font-size:11px;padding:2px 7px;margin-left:6px}
+.bar{height:6px;background:var(--card2);border-radius:3px;margin-top:5px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:3px}
+.tl{list-style:none;padding:0;margin:0}.tl li{padding:8px 0;border-bottom:1px dashed var(--line)} .tl li:last-child{border-bottom:none}
+.t{font-family:ui-monospace,Menlo,monospace;color:var(--gold);font-size:13px}
+.note{border-left:4px solid var(--gold);padding:10px 14px;background:var(--card2);border-radius:0 10px 10px 0}
+.small{color:var(--dim);font-size:13px} .ok{color:var(--ok);font-weight:700}
+footer{color:var(--dim);font-size:13px;margin-top:30px}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all}
+</style>
+</head>
+<body><div class="wrap">
+<header>
+<div class="kicker">Garuda cross-staking incident · 21 October 2026</div>
+<h1>ROTTI Staking <span class="grad">Compensation Ledger</span></h1>
+<p class="sub">On 21 Oct 2026, Garuda's staking factory was used to drain its ROTTI cross-staking contract. Everyone who had ROTTI staked — or sitting in a pending unstake — lost it. This page is the on-chain record of exactly who is owed what, taken from the contract's own surviving stake records and reconciled to the last unit against the drain transaction.</p>
+</header>
+
+<div class="stats">
+<div class="stat"><div class="n">395,749,615,651 ROTTI</div><div class="l">Owed to stakers (principal + pending unstakes)</div></div>
+<div class="stat"><div class="n">35</div><div class="l">Wallets owed</div></div>
+<div class="stat"><div class="n">30,335,058,412 ROTTI</div><div class="l">Of the total was in pending unstakes</div></div>
+<div class="stat"><div class="n">487,530,309,943 ROTTI</div><div class="l">Total swept from the ROTTI contract (incl. its ROTTI rewards pool)</div></div>
+</div>
+
+<div class="card">
+<h2>Check your wallet</h2>
+<p class="small">Paste your Terra Classic wallet address to see what you had in the drained ROTTI pool.</p>
+<input type="text" id="q" placeholder="terra1…" autocomplete="off" spellcheck="false">
+<div class="result" id="res"></div>
+</div>
+
+<div class="card">
+<h2>Full ledger — all 35 wallets</h2>
+<table id="tbl"><thead><tr><th>#</th><th>Wallet</th><th class="num">Staked</th><th class="num">Pending unstake</th><th class="num">Total owed</th><th class="num">Share</th><th>Staked since</th></tr></thead><tbody></tbody></table>
+<p class="small">“Pending unstake” = ROTTI the wallet had already unstaked but not yet withdrawn when the drain hit — it was still in the contract and was taken too, so it counts in full. Wallets with a zero balance at attack time are not listed. Accrued but unclaimed cross-rewards are not included; see “How this was verified”.</p>
+</div>
+
+<div class="card">
+<h2>What happened</h2>
+<ul class="tl">
+<li><span class="t">21 Oct 2026, 07:58:54 UTC</span> — An unrelated wallet uploaded a malicious contract code (code 11735). <a href="https://finder.terra.money/classic/tx/15DA5F9EE27E84E39DADA76B53AFDE73518AA2DBA5079C64CDFE956DE8ADC30F" target="_blank" rel="noopener">Store-code tx</a></li>
+<li><span class="t">07:59:06 UTC</span> — The same wallet called <code>migrate_staking</code> on Garuda's staking factory. All 9 staking contracts were migrated to the malicious code and every balance was swept to the attacker's wallet in one transaction; the attacker began selling the tokens within minutes. <a href="https://finder.terra.money/classic/tx/E1572248CBAB39B25B7B6D7CC21632CA2714C319F3906983B8BD847515610C25" target="_blank" rel="noopener">Sweep tx</a></li>
+<li>Drained ROTTI pool contract: <code>terra13frf88v48egxhg5gtzmzzncag9wkxd00q76n65mqylg3hsnp3qrqsllpey</code> · Attacker wallet: <code>terra10ytpt4g5j3c0rmg2qlr6nyryqclcff87elszm6</code> (not a Garuda wallet — the factory let a wallet with no Garuda role migrate every staking contract).</li>
+<li>Across all 9 drained contracts, <b>514,219,325,745 ROTTI</b> was taken in total — the ROTTI pool above held most of it; the rest sat as ROTTI reward balances in other pools (for example the FUN pool).</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>How this was verified</h2>
+<p>The malicious code has no query functions, but it did not wipe the contract's storage. The contract's raw on-chain state was read after the attack; its stake records and pending-unstake records (wallet, amount, dates) survived intact.</p>
+<p class="note"><span class="ok">Reconciled exactly:</span> staked principal <b>365,414,557,239 ROTTI</b> + pending unstakes <b>30,335,058,412 ROTTI</b> + ROTTI rewards pool <b>91,780,694,292 ROTTI</b> = <b>487,530,309,943 ROTTI</b> — precisely what the sweep transaction took from this contract. Difference: <b>0</b>.</p>
+<p class="small">Not included above: rewards that had accrued but not yet been claimed in this pool's cross-reward tokens. Those accrue per-staker from shared pools and cannot be split per wallet from balances alone; the surviving contract state holds the pool rates and last-withdraw timestamps needed to compute them.</p>
+</div>
+
+<div class="card">
+<h2>ROTTI rewards, going forward</h2>
+<p>A standalone PIZZAB × ROTTI rewards app — separate from Garuda, with no migration backdoor of this kind — is live on this site: <a href="https://lunc-projects.github.io/pizzab-rotti-rewards/">lunc-projects.github.io/pizzab-rotti-rewards</a>. This ledger is only the record of the old Garuda pool; it does not move funds and is not a claim portal. Any compensation decision and funding rest with the Garuda and ROTTI teams.</p>
+</div>
+
+<footer>Prepared from live on-chain data (Terra Classic, columbus-5), 21 Oct 2026. Every figure on this page can be checked against the transactions linked above and the drained contract's state. ROTTI token: <code>terra12j3xuxx52cg045qk37ee4k4u4fsgvyuf8d89dh7c9mr706jvxdascahqej</code> (total supply 3,616,914,010,867 ROTTI — the amount owed to this pool's stakers is ~10.9% of it).</footer>
+</div>
+<script>
+const DATA=[{"wallet": "terra10p7d73wgxythyskhhupw4823qykz6h0uwq7qal", "staked": 100000000000.0, "pending": 0.0, "owed": 100000000000.0, "share": 25.2685, "since": "2025-03-26"}, {"wallet": "terra1z9me4xhzaz8h5n75p4xtyjf26jfalmeulnxeyk", "staked": 75000000000.0, "pending": 0.0, "owed": 75000000000.0, "share": 18.9514, "since": "2025-03-26"}, {"wallet": "terra1dvphzrwqf4tc5q8cq2jtgwn887sp0k48zxglml", "staked": 73049552858.0, "pending": 0.0, "owed": 73049552858.0, "share": 18.4585, "since": "2025-12-22"}, {"wallet": "terra12mpdj7karpxqyhr6607rf8vxhj9xxsrughk2ed", "staked": 30000000.0, "pending": 30000000000.0, "owed": 30030000000.0, "share": 7.5881, "since": "2025-10-11"}, {"wallet": "terra1ujymwq9aempu6qtdxvan40c2fk5e0w8yhj4ue6", "staked": 19900000000.0, "pending": 0.0, "owed": 19900000000.0, "share": 5.0284, "since": "2025-12-16"}, {"wallet": "terra1lsku7yh0xa7ydzpvasrdd3mxvawg34ksswvdpr", "staked": 17838972902.0, "pending": 0.0, "owed": 17838972902.0, "share": 4.5076, "since": "2025-04-05"}, {"wallet": "terra13743eudk8ak8h34lllff4gy8ywfcd23w9vlj9v", "staked": 13881630871.0, "pending": 0.0, "owed": 13881630871.0, "share": 3.5077, "since": "2026-06-14"}, {"wallet": "terra1zk59pck5mcy5maekej5pe7u0sp8vhwmcqpfdsw", "staked": 11861059132.978973, "pending": 0.0, "owed": 11861059132.978973, "share": 2.9971, "since": "2025-03-26"}, {"wallet": "terra14t35sq909x2khre3tgq00ay45sfg0n58v6vg8a", "staked": 11695000000.0, "pending": 0.0, "owed": 11695000000.0, "share": 2.9552, "since": "2025-03-28"}, {"wallet": "terra1nej4v9a3srdrnvxnrwy6j4gshh9fsa0xlty37j", "staked": 10239500000.0, "pending": 0.0, "owed": 10239500000.0, "share": 2.5874, "since": "2026-05-21"}, {"wallet": "terra1eqme8qkz9mw7kdtdzxzd48z46nrdpn3ksmzfp8", "staked": 10000000000.0, "pending": 0.0, "owed": 10000000000.0, "share": 2.5269, "since": "2025-04-15"}, {"wallet": "terra1zf23yzlxshw53gljj3g0hfrp80rsqehqv5zjhk", "staked": 9100000000.0, "pending": 0.0, "owed": 9100000000.0, "share": 2.2994, "since": "2025-03-28"}, {"wallet": "terra1tu0lx26n8vjkpfjrjdyktnvt3wqfdtup65lyj5", "staked": 4391200000.0, "pending": 0.0, "owed": 4391200000.0, "share": 1.1096, "since": "2025-04-04"}, {"wallet": "terra1n67trzv9wj3py38pdvphcxzw4ttdfzsmrvtumj", "staked": 2097847756.0, "pending": 0.0, "owed": 2097847756.0, "share": 0.5301, "since": "2025-08-23"}, {"wallet": "terra1qkxutd5xmvhlr3gxdfc3h3q743wf9qmvw77rp3", "staked": 2077550748.5, "pending": 0.0, "owed": 2077550748.5, "share": 0.525, "since": "2025-03-30"}, {"wallet": "terra15pgdzrqgdfl5wwle4xde2zepqmzstgnq7mp76s", "staked": 1700000000.0, "pending": 0.0, "owed": 1700000000.0, "share": 0.4296, "since": "2025-04-15"}, {"wallet": "terra1m84574agk47pq8696p4z5ul8yg874t7hk0s577", "staked": 1242000000.0, "pending": 0.0, "owed": 1242000000.0, "share": 0.3138, "since": "2025-03-26"}, {"wallet": "terra10juwukwg2fsvvw8zxx4v09lzvf0zx4wkf3czuq", "staked": 406000000.0, "pending": 0.0, "owed": 406000000.0, "share": 0.1026, "since": "2025-03-26"}, {"wallet": "terra1224j7cutr443kw32tmpk54wfez67spl9q5dzwj", "staked": 0.0, "pending": 335058412.0, "owed": 335058412.0, "share": 0.0847, "since": "2025-03-31"}, {"wallet": "terra154ns0jnajcjvc4wjjrza020gaux2lzd7rwaf45", "staked": 247300000.0, "pending": 0.0, "owed": 247300000.0, "share": 0.0625, "since": "2025-12-03"}, {"wallet": "terra19spu2gyy973y04pa7r33gwpq2e9w8n4hcty2te", "staked": 167696731.0, "pending": 0.0, "owed": 167696731.0, "share": 0.0424, "since": "2025-07-17"}, {"wallet": "terra1tw9v6ggp74uzvmkgkdhsydeqwgsdapgctfzgw6", "staked": 142743116.524858, "pending": 0.0, "owed": 142743116.524858, "share": 0.0361, "since": "2025-04-09"}, {"wallet": "terra1q44kah9f6lyveyxc4axfdpwdh9ppeus75stnqy", "staked": 102623000.0, "pending": 0.0, "owed": 102623000.0, "share": 0.0259, "since": "2025-07-27"}, {"wallet": "terra17p0tahtd8x8203lx5utddqx54dj6xlnx2vwf92", "staked": 100000000.0, "pending": 0.0, "owed": 100000000.0, "share": 0.0253, "since": "2026-09-02"}, {"wallet": "terra1qwr5gy6xxazm6ad3uerwuxsyyduy2c730qw4th", "staked": 61556800.0, "pending": 0.0, "owed": 61556800.0, "share": 0.0156, "since": "2025-12-16"}, {"wallet": "terra150vm8v6z4hpt2vat5dk057erz0zzez5gav5cd2", "staked": 44000000.0, "pending": 0.0, "owed": 44000000.0, "share": 0.0111, "since": "2025-04-12"}, {"wallet": "terra1nmy7ak8va66mrzugkc6mkvp6422ywavqvs5pm0", "staked": 22872000.0, "pending": 0.0, "owed": 22872000.0, "share": 0.0058, "since": "2026-07-15"}, {"wallet": "terra1gk3dqlmtsq0vhskxwngcgadvpnd6hs9w58zzkm", "staked": 8551600.0, "pending": 0.0, "owed": 8551600.0, "share": 0.0022, "since": "2025-09-12"}, {"wallet": "terra1gg6shmetymx7wcdkw6eelyk9fr5p56yagmqtjc", "staked": 3944000.0, "pending": 0.0, "owed": 3944000.0, "share": 0.001, "since": "2025-06-15"}, {"wallet": "terra1r2w86sltj9vx8curzhlytsnfqa9wpfxn6xr8ud", "staked": 1900000.0, "pending": 0.0, "owed": 1900000.0, "share": 0.0005, "since": "2025-04-17"}, {"wallet": "terra1r22cypwwfcc09e98gr9ztks07cmw6zkgsplxwc", "staked": 800000.0, "pending": 0.0, "owed": 800000.0, "share": 0.0002, "since": "2026-02-11"}, {"wallet": "terra199jlusyxpj7p5s9emw62fedjp7j3frw0nk3h5q", "staked": 217978.0, "pending": 0.0, "owed": 217978.0, "share": 0.0001, "since": "2025-04-12"}, {"wallet": "terra1fzwvx3w36wure32jegesu6gu0dnk8helf6c4yq", "staked": 37655.0, "pending": 0.0, "owed": 37655.0, "share": 0.0, "since": "2025-07-16"}, {"wallet": "terra1u5d99346uh9sltrtjuewdm3ggxn2yyy23yycsp", "staked": 90.0, "pending": 0.0, "owed": 90.0, "share": 0.0, "since": "2025-09-10"}, {"wallet": "terra1egranssfznmvnffgcf0wkc3qg83t4vf7a4apvz", "staked": 0.011084, "pending": 0.0, "owed": 0.011084, "share": 0.0, "since": "2026-03-25"}];
+const fmt=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0=n=>n.toLocaleString('en-US',{maximumFractionDigits:0});
+const short=a=>a.slice(0,10)+'…'+a.slice(-6);
+const tbody=document.querySelector('#tbl tbody');
+DATA.forEach((r,i)=>{
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td>${i+1}</td><td><span class="addr">${short(r.wallet)}</span><button class="copy" data-a="${r.wallet}">copy</button><div class="bar"><i style="width:${Math.max(r.share,0.6)}%"></i></div></td><td class="num">${fmt0(r.staked)}</td><td class="num">${r.pending?fmt0(r.pending):'—'}</td><td class="num"><b>${fmt0(r.owed)}</b></td><td class="num">${r.share.toFixed(2)}%</td><td>${r.since}</td>`;
+  tbody.appendChild(tr);
+});
+document.addEventListener('click',e=>{ if(e.target.classList.contains('copy')){ navigator.clipboard.writeText(e.target.dataset.a); e.target.textContent='copied'; setTimeout(()=>e.target.textContent='copy',1200);} });
+const q=document.getElementById('q'), res=document.getElementById('res');
+q.addEventListener('input',()=>{
+  const v=q.value.trim().toLowerCase();
+  if(!v){res.style.display='none';return;}
+  const i=DATA.findIndex(r=>r.wallet===v);
+  res.style.display='block';
+  if(i>=0){ const r=DATA[i];
+    res.innerHTML=`<div class="amt">${fmt(r.owed)} ROTTI owed</div><div>Rank #${i+1} of 35 · ${r.share.toFixed(2)}% of the pool total · staked ${fmt0(r.staked)} ROTTI${r.pending?` + ${fmt0(r.pending)} ROTTI in a pending unstake`:''} · staked since ${r.since}</div><div class="small" style="margin-top:6px">Per the drained contract's own records at the moment of the attack.</div>`;
+  } else {
+    res.innerHTML=`<div><b>No stake found for that address.</b></div><div class="small">Either the address is mistyped, or this wallet had no ROTTI in the Garuda ROTTI pool (or had fully withdrawn before 21 Oct 2026).</div>`;
+  }
+});
+</script>
+</body></html>
